@@ -35,9 +35,9 @@
 - [x] Root `README.md`
 
 ## Next Milestones (Planned)
-- [ ] Durable metering backend and usage query API.
+- [x] Durable metering backend and usage query API.
 - [ ] API key management endpoints and scoped permissions.
-- [ ] Dashboard authentication + usage view.
+- [x] Dashboard authentication + usage view.
 - [ ] Workflow run history and replay.
 - [ ] Rate limiting and abuse prevention.
 - [ ] CI, tests, and release pipelines.

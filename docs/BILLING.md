@@ -10,30 +10,39 @@ Builder OS monetizes hosted convenience and reliability. Self-host and BYOK rema
 
 ## Metering Path
 1. Request enters hosted gateway with API key.
-2. Auth middleware resolves principal.
+2. Auth middleware resolves normalized `AuthContext` with stable identity fields (`apiKeyId`, `ownerId`, `keyPrefix`, `scopes`, `mode`).
 3. Metering middleware emits usage event:
-   - request ID
+   - id
+   - api key id
    - route
-   - api key identifier
-   - timestamp
-   - status code
-   - duration
+   - workflow name
+   - status
+   - unit type
+   - units
+   - latency ms
+   - created at
 4. Event sink stores record for downstream billing aggregation.
 
-v0 uses an in-memory sink for architecture validation. Production will replace this with durable storage and an aggregation pipeline.
+Milestone 2 stores usage events durably in Postgres through `UsageEventRepository` and exposes query APIs for dashboard/billing aggregation.
 
 ## Data Model (Initial)
 - `api_keys`
   - id
-  - project_id / account_id
+  - key_hash
+  - key_prefix
+  - owner_id
+  - scopes
   - status
   - created_at
 - `usage_events`
-  - request_id
+  - id
   - api_key_id
   - route
-  - status_code
-  - duration_ms
+  - workflow_name
+  - status
+  - unit_type
+  - units
+  - latency_ms
   - created_at
 - `billing_period_summaries`
   - account_id
@@ -56,7 +65,7 @@ These can be layered without breaking current request-metering contracts.
 - Stage 3: blended model (base request + resource dimensions).
 
 ## Required Production Additions
-- durable event sink with retry/idempotency
+- durable event sink retries/idempotency controls
 - API key to account/project normalization
 - invoice generation and reconciliation jobs
 - customer-visible usage dashboard and exports
