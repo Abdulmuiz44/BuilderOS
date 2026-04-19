@@ -1,0 +1,19 @@
+{
+  "name": "@builderos/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "builder-os": "dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist",
+    "lint": "echo 'No lint configured for @builderos/cli yet'"
+  },
+  "dependencies": {
+    "@builderos/sdk": "workspace:*"
+  }
+}
