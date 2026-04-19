@@ -44,14 +44,17 @@ async function main(): Promise<void> {
 
   const baseUrl = process.env.BUILDER_OS_GATEWAY_URL ?? "http://localhost:8787";
   const apiKey = process.env.BUILDER_OS_API_KEY;
+  const localMode = process.env.BUILDER_OS_ALLOW_ANON_LOCAL === "true";
 
-  if (!apiKey && process.env.BUILDER_OS_ALLOW_ANON_LOCAL !== "true") {
+  if (!apiKey && !localMode) {
     console.error("BUILDER_OS_API_KEY is required unless BUILDER_OS_ALLOW_ANON_LOCAL=true is set.");
     process.exitCode = 1;
     return;
   }
 
-  const client = new BuilderOsClient({ baseUrl, apiKey });
+  const client = localMode
+    ? new BuilderOsClient({ baseUrl, mode: "local" })
+    : new BuilderOsClient({ baseUrl, mode: "hosted", apiKey: apiKey as string });
   const input = parseInput(rawInput);
 
   const result = await client.runWorkflow({ workflowName, input });

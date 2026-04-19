@@ -8,12 +8,14 @@
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "clean": "turbo run clean",
     "lint": "turbo run lint"
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
     "@types/node": "^22.15.3",
+    "@types/pg": "^8.15.6",
     "tsup": "^8.1.0",
     "tsx": "^4.19.2",
     "turbo": "^2.0.14",

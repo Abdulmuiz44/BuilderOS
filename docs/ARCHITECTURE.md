@@ -37,8 +37,22 @@ Hosted responsibilities:
 
 ## Request Flow (Hosted)
 1. CLI or SDK sends `POST /v1/workflows/run` with `x-builder-os-api-key`.
-2. Auth middleware validates key and sets request principal.
-3. Metering middleware starts timer and records completion event.
+2. Auth middleware resolves the API key into normalized `AuthContext`:
+   - `apiKeyId`
+   - `keyPrefix`
+   - `ownerId`
+   - `scopes`
+   - `mode`
+3. Metering middleware starts timer and emits one canonical `UsageEvent` on response finish:
+   - `id`
+   - `apiKeyId`
+   - `route`
+   - `workflowName`
+   - `status`
+   - `unitType`
+   - `units`
+   - `latencyMs`
+   - `createdAt`
 4. Gateway dispatches workflow execution through `packages/core`.
 5. Response returns workflow output with request metadata.
 
@@ -58,6 +72,14 @@ Hosted responsibilities:
 
 This keeps the workflow engine portable and avoids coupling business logic to HTTP transport.
 
+## Gateway Data Layer
+- `apps/gateway/src/db`: Postgres client, migrations runner, key hashing utility.
+- `apps/gateway/src/repos`: SQL repository layer (`ApiKeyRepository`, `UsageEventRepository`).
+- `apps/gateway/src/adapters`: interface adapters (`ApiKeyResolver`, `UsageEventStore`) backed by repositories.
+- `apps/gateway/src/routes/usage.ts`: billing/dashboard-friendly query APIs.
+
+SQL access is isolated to repositories; middleware and route handlers depend on interfaces/adapters.
+
 ## Extensibility Points
 - Add workflows by publishing new definitions from `packages/workflows`.
 - Add tools via tool registry interfaces.
@@ -66,6 +88,7 @@ This keeps the workflow engine portable and avoids coupling business logic to HT
 - Evolve auth strategy (static keys -> scoped keys/JWT) while preserving middleware contract.
 
 ## Production Notes
-- v0 includes in-memory metering sink for fast iteration.
-- Production should use durable event sink and idempotent write path.
+- Milestone 2 uses Postgres-backed auth resolution and usage-event persistence.
+- Migrations are SQL-first and live in `apps/gateway/migrations`.
+- Current implementation is intentionally minimal and contract-stable for upcoming key management and billing workflows.
 - API key management, rate limiting, retries, and observability are planned next layers.

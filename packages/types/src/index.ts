@@ -1,8 +1,14 @@
 export type ApiMode = "local" | "hosted";
+export type UsageStatus = "success" | "error" | "unauthorized";
+export type UsageUnitType = "request";
+export type AuthScope = "workflows:run";
 
-export interface AuthenticatedPrincipal {
+export interface AuthContext {
+  apiKeyId: string;
+  keyPrefix: string;
+  ownerId: string;
+  scopes: AuthScope[];
   mode: ApiMode;
-  apiKey: string;
 }
 
 export interface RunWorkflowRequest {
@@ -14,6 +20,12 @@ export interface RunWorkflowResponse {
   requestId: string;
   workflowName: string;
   mode: ApiMode;
+  auth: {
+    apiKeyId: string;
+    ownerId: string;
+    keyPrefix: string;
+    scopes: AuthScope[];
+  };
   output: Record<string, unknown>;
 }
 
@@ -28,12 +40,14 @@ export interface WorkflowDefinition {
   run: (input: Record<string, unknown>, ctx: WorkflowContext) => Promise<Record<string, unknown>>;
 }
 
-export interface MeterEvent {
-  requestId: string;
-  apiKey: string;
+export interface UsageEvent {
+  id: string;
+  apiKeyId: string;
   route: string;
-  method: string;
-  statusCode: number;
-  durationMs: number;
-  timestamp: string;
+  workflowName: string;
+  status: UsageStatus;
+  unitType: UsageUnitType;
+  units: number;
+  latencyMs: number;
+  createdAt: string;
 }
