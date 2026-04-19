@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@builderos/types": ["packages/types/src/index.ts"],
+      "@builderos/core": ["packages/core/src/index.ts"],
+      "@builderos/workflows": ["packages/workflows/src/index.ts"],
+      "@builderos/tools": ["packages/tools/src/index.ts"],
+      "@builderos/browser-adapter": ["packages/browser-adapter/src/index.ts"],
+      "@builderos/sdk": ["packages/sdk/src/index.ts"],
+      "@builderos/auth": ["packages/auth/src/index.ts"],
+      "@builderos/metering": ["packages/metering/src/index.ts"]
+    },
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "dist"
+  }
+}

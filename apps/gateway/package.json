@@ -1,0 +1,22 @@
+{
+  "name": "@builderos/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist",
+    "lint": "echo 'No lint configured for @builderos/gateway yet'"
+  },
+  "dependencies": {
+    "@builderos/auth": "workspace:*",
+    "@builderos/core": "workspace:*",
+    "@builderos/metering": "workspace:*",
+    "@builderos/types": "workspace:*",
+    "@builderos/workflows": "workspace:*",
+    "express": "^5.1.0"
+  }
+}
