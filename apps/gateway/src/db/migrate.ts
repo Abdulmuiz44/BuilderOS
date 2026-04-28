@@ -53,16 +53,3 @@ export async function runMigrations(): Promise<void> {
     client.release();
   }
 }
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runMigrations()
-    .then(() => {
-      console.log("Migrations applied successfully");
-      process.exit(0);
-    })
-    .catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : "Unknown migration error";
-      console.error(message);
-      process.exit(1);
-    });
-}

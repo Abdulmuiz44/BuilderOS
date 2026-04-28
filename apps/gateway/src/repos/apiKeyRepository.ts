@@ -39,4 +39,49 @@ export class ApiKeyRepository {
 
     return result.rows[0] ?? null;
   }
+
+  async listByOwner(ownerId: string): Promise<ApiKeyRecord[]> {
+    const result = await this.db.query<ApiKeyRecord>(
+      `
+        SELECT id, key_hash, key_prefix, owner_id, scopes, status, created_at
+        FROM api_keys
+        WHERE owner_id = $1
+        ORDER BY created_at DESC
+      `,
+      [ownerId]
+    );
+
+    return result.rows;
+  }
+
+  async create(input: {
+    id: string;
+    keyHash: string;
+    keyPrefix: string;
+    ownerId: string;
+    scopes: AuthScope[];
+  }): Promise<void> {
+    await this.db.query(
+      `
+        INSERT INTO api_keys (id, key_hash, key_prefix, owner_id, scopes, status)
+        VALUES ($1, $2, $3, $4, $5::jsonb, 'active')
+      `,
+      [input.id, input.keyHash, input.keyPrefix, input.ownerId, JSON.stringify(input.scopes)]
+    );
+  }
+
+  async revokeById(id: string, ownerId: string): Promise<boolean> {
+    const result = await this.db.query(
+      `
+        UPDATE api_keys
+        SET status = 'inactive'
+        WHERE id = $1
+          AND owner_id = $2
+          AND status = 'active'
+      `,
+      [id, ownerId]
+    );
+
+    return Boolean(result.rowCount && result.rowCount > 0);
+  }
 }

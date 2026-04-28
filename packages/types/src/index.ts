@@ -1,7 +1,7 @@
 export type ApiMode = "local" | "hosted";
 export type UsageStatus = "success" | "error" | "unauthorized";
 export type UsageUnitType = "request";
-export type AuthScope = "workflows:run";
+export type AuthScope = "workflows:run" | "api_keys:manage" | "usage:read";
 
 export interface AuthContext {
   apiKeyId: string;

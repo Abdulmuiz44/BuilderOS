@@ -71,12 +71,45 @@ export BUILDER_OS_API_KEY=bos_dev_example_key
 pnpm --filter @builderos/cli dev -- run echo '{"message":"hello from cli"}'
 ```
 
+Profile-based setup (recommended):
+
+```bash
+pnpm --filter @builderos/cli dev -- profile set local-hosted --base-url http://localhost:8787 --mode hosted --api-key-env BUILDER_OS_API_KEY
+pnpm --filter @builderos/cli dev -- profile use local-hosted
+pnpm --filter @builderos/cli dev -- run echo '{"message":"hello from profile"}'
+```
+
 ### 5. Run local mode (auth bypass for local development)
 
 ```bash
 export BUILDER_OS_ALLOW_ANON_LOCAL=true
 pnpm --filter @builderos/gateway dev
 pnpm --filter @builderos/cli dev -- run echo '{"message":"local mode"}'
+```
+
+### 6. Query usage summary
+
+```bash
+pnpm --filter @builderos/cli dev -- usage summary --from 2026-01-20T00:00:00.000Z --to 2026-01-21T00:00:00.000Z
+pnpm --filter @builderos/cli dev -- usage by-route --from 2026-01-20T00:00:00.000Z --to 2026-01-21T00:00:00.000Z
+pnpm --filter @builderos/cli dev -- usage by-api-key --from 2026-01-20T00:00:00.000Z --to 2026-01-21T00:00:00.000Z
+```
+
+### 7. Workflow run history and replay
+
+```bash
+pnpm --filter @builderos/cli dev -- runs list --limit 20
+pnpm --filter @builderos/cli dev -- runs list --status error --workflow echo --from 2026-01-20T00:00:00.000Z --to 2026-01-21T00:00:00.000Z
+pnpm --filter @builderos/cli dev -- runs list --limit 20 --cursor 2026-01-21T00:00:00.000Z
+pnpm --filter @builderos/cli dev -- runs replay <request-id>
+```
+
+### 8. API key management
+
+```bash
+pnpm --filter @builderos/cli dev -- keys list
+pnpm --filter @builderos/cli dev -- keys create --scopes workflows:run,usage:read
+pnpm --filter @builderos/cli dev -- keys revoke <api-key-id>
 ```
 
 ## Environment Variables
