@@ -18,6 +18,32 @@ type UsageByApiKey = {
   items: Array<{ apiKeyId: string; keyPrefix: string | null; requestCount: number }>;
 };
 
+type WorkflowRuns = {
+  items: Array<{
+    requestId: string;
+    workflowName: string;
+    status: "success" | "error";
+    mode: "hosted" | "local";
+    ownerId: string;
+    apiKeyId: string;
+    createdAt: string;
+    completedAt: string;
+    errorMessage?: string;
+  }>;
+  limit: number;
+};
+
+type ApiKeys = {
+  items: Array<{
+    id: string;
+    keyPrefix: string;
+    ownerId: string;
+    scopes: string[];
+    status: "active" | "inactive";
+    createdAt?: string;
+  }>;
+};
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -44,6 +70,15 @@ async function fetchGatewayJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function fetchGatewayMaybe<T>(path: string): Promise<{ data?: T; error?: string }> {
+  try {
+    const data = await fetchGatewayJson<T>(path);
+    return { data };
+  } catch (error: unknown) {
+    return { error: error instanceof Error ? error.message : "Unknown request error" };
+  }
+}
+
 function renderTableRows(rows: string[], colspan: number): string {
   return rows.length > 0
     ? rows.join("")
@@ -54,6 +89,10 @@ function renderPage(params: {
   summary: UsageSummary;
   byRoute: UsageByRoute;
   byApiKey: UsageByApiKey;
+  workflowRuns?: WorkflowRuns;
+  workflowRunsError?: string;
+  apiKeys?: ApiKeys;
+  apiKeysError?: string;
 }): string {
   const routeRows = params.byRoute.items.map(
     (item) =>
@@ -63,6 +102,20 @@ function renderPage(params: {
   const keyRows = params.byApiKey.items.map(
     (item) =>
       `<tr><td>${escapeHtml(item.apiKeyId)}</td><td>${escapeHtml(item.keyPrefix ?? "unknown")}</td><td>${item.requestCount}</td></tr>`
+  );
+
+  const runRows = (params.workflowRuns?.items ?? []).map(
+    (item) =>
+      `<tr><td><code>${escapeHtml(item.requestId)}</code></td><td>${escapeHtml(item.workflowName)}</td><td>${escapeHtml(
+        item.status
+      )}</td><td>${escapeHtml(item.mode)}</td><td>${escapeHtml(item.createdAt)}</td></tr>`
+  );
+
+  const apiKeyRows = (params.apiKeys?.items ?? []).map(
+    (item) =>
+      `<tr><td><code>${escapeHtml(item.id)}</code></td><td><code>${escapeHtml(item.keyPrefix)}</code></td><td>${escapeHtml(
+        item.status
+      )}</td><td>${escapeHtml(item.scopes.join(", "))}</td></tr>`
   );
 
   return `<!doctype html>
@@ -155,6 +208,34 @@ function renderPage(params: {
           <tbody>${renderTableRows(keyRows, 3)}</tbody>
         </table>
       </section>
+
+      <section class="card">
+        <strong>Recent Workflow Runs</strong>
+        ${
+          params.workflowRunsError
+            ? `<p>Unavailable: ${escapeHtml(params.workflowRunsError)}</p>`
+            : `<table>
+          <thead>
+            <tr><th>Request ID</th><th>Workflow</th><th>Status</th><th>Mode</th><th>Created At</th></tr>
+          </thead>
+          <tbody>${renderTableRows(runRows, 5)}</tbody>
+        </table>`
+        }
+      </section>
+
+      <section class="card">
+        <strong>API Key Inventory</strong>
+        ${
+          params.apiKeysError
+            ? `<p>Unavailable: ${escapeHtml(params.apiKeysError)}</p>`
+            : `<table>
+          <thead>
+            <tr><th>ID</th><th>Prefix</th><th>Status</th><th>Scopes</th></tr>
+          </thead>
+          <tbody>${renderTableRows(apiKeyRows, 4)}</tbody>
+        </table>`
+        }
+      </section>
     </main>
   </body>
 </html>`;
@@ -182,14 +263,26 @@ const server = createServer(async (_req, res) => {
   const qs = `from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
 
   try {
-    const [summary, byRoute, byApiKey] = await Promise.all([
+    const [summary, byRoute, byApiKey, workflowRunsResult, apiKeysResult] = await Promise.all([
       fetchGatewayJson<UsageSummary>(`/v1/usage/summary?${qs}`),
       fetchGatewayJson<UsageByRoute>(`/v1/usage/by-route?${qs}`),
-      fetchGatewayJson<UsageByApiKey>(`/v1/usage/by-api-key?${qs}`)
+      fetchGatewayJson<UsageByApiKey>(`/v1/usage/by-api-key?${qs}`),
+      fetchGatewayMaybe<WorkflowRuns>("/v1/workflows?limit=20"),
+      fetchGatewayMaybe<ApiKeys>("/v1/api-keys")
     ]);
 
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(renderPage({ summary, byRoute, byApiKey }));
+    res.end(
+      renderPage({
+        summary,
+        byRoute,
+        byApiKey,
+        workflowRuns: workflowRunsResult.data,
+        workflowRunsError: workflowRunsResult.error,
+        apiKeys: apiKeysResult.data,
+        apiKeysError: apiKeysResult.error
+      })
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown dashboard error";
     res.writeHead(500, { "content-type": "text/html; charset=utf-8" });

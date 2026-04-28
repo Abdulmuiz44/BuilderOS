@@ -67,7 +67,7 @@ export function createStaticApiKeyResolver(rawKeys: string[]): ApiKeyResolver {
       apiKeyId: deriveApiKeyId(key),
       keyPrefix: deriveKeyPrefix(key),
       ownerId: deriveOwnerId(key),
-      scopes: ["workflows:run"],
+      scopes: ["workflows:run", "usage:read", "api_keys:manage"],
       mode: "hosted"
     });
   }
@@ -121,7 +121,7 @@ export async function resolveAuthContext(options: {
       apiKeyId: "local-anon",
       keyPrefix: "local-anon",
       ownerId: "local-dev",
-      scopes: ["workflows:run"],
+      scopes: ["workflows:run", "usage:read", "api_keys:manage"],
       mode: "local"
     };
   }
