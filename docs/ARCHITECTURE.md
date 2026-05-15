@@ -1,94 +1,44 @@
-# Builder OS Architecture
+# BuilderOS Architecture
 
-## System Shape
-Builder OS is a modular TypeScript monorepo with clear separation between open source workflow infrastructure and hosted managed services.
+BuilderOS is a local-first agentic operating system for repeatable builder workflows. The MVP uses a small modular monorepo and a single-process runtime instead of distributed workers.
 
-- `apps/cli`: developer-facing command-line client.
-- `apps/web`: dashboard foundation.
-- `apps/gateway`: hosted API surface and middleware chain.
-- `packages/core`: workflow engine.
-- `packages/workflows`: workflow definitions and examples.
-- `packages/tools`: tool interfaces and registry primitives.
-- `packages/browser-adapter`: browser automation interfaces.
-- `packages/sdk`: typed client for gateway calls.
-- `packages/auth`: request auth primitives and middleware.
-- `packages/metering`: request metering interfaces and middleware.
-- `packages/types`: shared contracts.
+## Modules
 
-## Open Source Core vs Hosted Gateway
+- `apps/web`: Next.js App Router UI, server actions, and responsive application shell.
+- `packages/core`: runtime store, SQLite migrations, seeded manifests, capability handlers, and sequential executor.
+- `packages/types`: shared TypeScript contracts.
+- `apps/gateway` and `apps/cli`: existing API/CLI foundation retained for future cloud and automation paths.
 
-### Open Source Core
-Open source includes the CLI, workflow engine, workflow contracts, adapters, and all package interfaces required for self-hosting.
+## Runtime model
 
-Core responsibilities:
-- Define workflow contracts and runner behavior.
-- Enable local mode execution and config.
-- Provide SDK and integration surfaces.
-- Keep extension points public and composable.
+Core entities:
 
-### Hosted Gateway
-Hosted gateway provides managed API key entrypoint, auth enforcement, request metering, and reliability features.
+- workflows
+- workflow steps
+- runs
+- run steps
+- logs
+- artifacts
+- plugins
+- capabilities
+- secrets
+- accepted permissions
 
-Hosted responsibilities:
-- Validate Builder OS API keys.
-- Meter each request for billing/analytics.
-- Execute workflows in managed infrastructure.
-- Provide operational guarantees and DX improvements.
+## Execution lifecycle
 
-## Request Flow (Hosted)
-1. CLI or SDK sends `POST /v1/workflows/run` with `x-builder-os-api-key`.
-2. Auth middleware resolves the API key into normalized `AuthContext`:
-   - `apiKeyId`
-   - `keyPrefix`
-   - `ownerId`
-   - `scopes`
-   - `mode`
-3. Metering middleware starts timer and emits one canonical `UsageEvent` on response finish:
-   - `id`
-   - `apiKeyId`
-   - `route`
-   - `workflowName`
-   - `status`
-   - `unitType`
-   - `units`
-   - `latencyMs`
-   - `createdAt`
-4. Gateway dispatches workflow execution through `packages/core`.
-5. Response returns workflow output with request metadata.
+1. User opens the web app.
+2. `openBuilderOs()` opens SQLite, runs migrations, and seeds built-ins.
+3. User triggers a workflow manually.
+4. The executor creates a queued run and pending run steps.
+5. The run becomes `running`.
+6. Each step checks capability availability and required permissions.
+7. Handler output is saved, logs are written, and artifacts are attached.
+8. The run ends as `succeeded` or `failed`.
 
-## Request Flow (Local)
-1. User runs local stack and sets local mode env/config.
-2. Auth middleware can allow local anonymous dev mode.
-3. Workflow execution path remains the same through core engine.
-4. Metering still runs for local observability/testing.
+## Why SQLite
 
-## Package Boundaries
-- `types` is dependency base for cross-package contracts.
-- `core` depends on `types` only.
-- `workflows` depends on `types` for definitions.
-- `gateway` composes `auth`, `metering`, `core`, `workflows`, `types`.
-- `sdk` depends on `types`; consumers depend on `sdk`.
-- `cli` depends on `sdk` only for API calls.
+SQLite is fastest and safest for the local-first MVP: no external service, simple self-hosting, and easy migration to PostgreSQL later through the store boundary.
 
-This keeps the workflow engine portable and avoids coupling business logic to HTTP transport.
+## Intentional non-goals
 
-## Gateway Data Layer
-- `apps/gateway/src/db`: Postgres client, migrations runner, key hashing utility.
-- `apps/gateway/src/repos`: SQL repository layer (`ApiKeyRepository`, `UsageEventRepository`).
-- `apps/gateway/src/adapters`: interface adapters (`ApiKeyResolver`, `UsageEventStore`) backed by repositories.
-- `apps/gateway/src/routes/usage.ts`: billing/dashboard-friendly query APIs.
-
-SQL access is isolated to repositories; middleware and route handlers depend on interfaces/adapters.
-
-## Extensibility Points
-- Add workflows by publishing new definitions from `packages/workflows`.
-- Add tools via tool registry interfaces.
-- Add browser implementations behind adapter interfaces.
-- Swap metering sinks (memory -> database/queue) without gateway rewrite.
-- Evolve auth strategy (static keys -> scoped keys/JWT) while preserving middleware contract.
-
-## Production Notes
-- Milestone 2 uses Postgres-backed auth resolution and usage-event persistence.
-- Migrations are SQL-first and live in `apps/gateway/migrations`.
-- Current implementation is intentionally minimal and contract-stable for upcoming key management and billing workflows.
-- API key management, rate limiting, retries, and observability are planned next layers.
+No marketplace, billing, multi-tenant SaaS, unrestricted shell execution, production secrets vault, browser automation, giant knowledge graph, or distributed worker system in the first version.

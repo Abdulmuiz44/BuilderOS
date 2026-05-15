@@ -1,144 +1,203 @@
-# Builder OS
+# BuilderOS
 
-Open source assistant operating system for developers and AI builders.
+BuilderOS is an open-source, self-hostable agentic operating system for builders, developers, indie hackers, and product teams. The first real version focuses on a local-first runtime for repeatable builder workflows: product research, repo review, landing-page planning, feature planning, launch checklists, and generated artifacts.
 
-Builder OS is designed as an open core platform with two operating modes:
-- Local mode: self-host, bring your own keys, run workflows locally.
-- Hosted mode: call the Builder OS managed gateway with a Builder OS API key.
+BuilderOS borrows broad architectural logic from agentic operating systems: plugin runtime, interfaces/channels, capability providers, reference workflows, scheduled-routine readiness, secrets, permissions, and self-hostability. It is **not** a clone of any existing product and intentionally avoids marketplace, multi-tenant SaaS, billing, browser automation, and unrestricted shell execution in the MVP.
 
-The core is open source. The monetization layer is hosted convenience: orchestration quality, reliability, and developer experience.
+## What is included in the MVP
 
-## Repository Layout
+- Next.js App Router web app with dashboard, sidebar navigation, responsive dark UI, and pages for Runs, Workflows, Plugins, Capabilities, Secrets, and Settings.
+- Local SQLite-backed runtime using Node.js `node:sqlite`.
+- Core data model for workflows, workflow steps, runs, run steps, logs, artifacts, plugins, capabilities, secrets, and accepted permissions.
+- Sequential server-side run executor.
+- Local plugin manifest registry.
+- Capability registry with permission checks.
+- Reference workflows seeded at startup.
+- Artifact storage and run detail views.
+- Masked local secrets UI.
 
-- `apps/cli`: CLI for running workflows against local/hosted gateway.
-- `apps/web`: web dashboard foundation.
-- `apps/gateway`: hosted gateway API with auth + metering middleware.
-- `packages/core`: workflow engine.
-- `packages/workflows`: built-in example workflows.
-- `packages/tools`: tool registry interfaces.
-- `packages/browser-adapter`: browser adapter interfaces.
-- `packages/sdk`: typed client used by CLI and external consumers.
-- `packages/auth`: API key auth utilities and middleware.
-- `packages/metering`: request metering utilities and middleware.
-- `packages/types`: shared contracts.
-- `docs/`: product and architecture docs.
+## Local setup
 
-## Documentation
-
-- [`docs/PLAN.md`](docs/PLAN.md)
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- [`docs/OSS_STRATEGY.md`](docs/OSS_STRATEGY.md)
-- [`docs/BILLING.md`](docs/BILLING.md)
-- [`docs/TASKLIST.md`](docs/TASKLIST.md)
-- [`docs/DATABASE.md`](docs/DATABASE.md)
-
-## Getting Started
-
-### 1. Install dependencies
+> Node.js 24+ is recommended because the MVP uses the built-in `node:sqlite` module.
 
 ```bash
+corepack enable
 pnpm install
+pnpm --filter @builderos/web dev
 ```
 
-### 2. Configure and migrate Postgres
+Open <http://localhost:3000>.
+
+The SQLite database is created automatically at:
+
+```text
+.builderos/builderos.sqlite
+```
+
+You can override it with:
 
 ```bash
-export DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DB
-pnpm --filter @builderos/gateway db:migrate
+BUILDEROS_DB_PATH=/absolute/path/to/builderos.sqlite pnpm --filter @builderos/web dev
 ```
 
-Optional local seed key:
+## Environment variables
 
-```bash
-export BUILDER_OS_SEED_API_KEY=bos_dev_example_key
-export BUILDER_OS_SEED_OWNER_ID=local-dev
-pnpm --filter @builderos/gateway db:seed-api-key
+| Variable | Description | Default |
+| --- | --- | --- |
+| `BUILDEROS_DB_PATH` | Path to the local SQLite database. | `.builderos/builderos.sqlite` from the app process cwd |
+
+Existing gateway/CLI packages still support their previous environment variables for hosted/local API usage. The new MVP web runtime is independent and local-first.
+
+## Architecture overview
+
+BuilderOS is organized as a monorepo:
+
+- `apps/web` — Next.js App Router UI and server actions.
+- `packages/core` — SQLite store, built-in plugin/capability registry, seeded workflows, and run executor.
+- `packages/types` — shared runtime and API types.
+- `apps/gateway`, `apps/cli`, and supporting packages — existing API/CLI foundation retained for later integration.
+
+Runtime flow:
+
+1. The web app opens the local BuilderOS store.
+2. The store migrates SQLite tables and seeds built-in plugins, capabilities, and reference workflows.
+3. A user clicks **Run workflow**.
+4. The server action submits workflow input plus accepted permissions.
+5. The executor creates a run and run-step records.
+6. Each step resolves its capability and checks required permissions.
+7. The executor runs capability handlers sequentially.
+8. Logs, step outputs, errors, and artifacts are persisted.
+9. Runs and artifacts are displayed in the UI.
+
+## How workflows work
+
+A workflow represents a repeatable builder process with:
+
+- `name`
+- `description`
+- `category`
+- `inputSchema`
+- `outputExpectations`
+- `enabled`
+- `requiredPermissions`
+- ordered `steps`
+
+Each step calls a capability with JSON input. Step input supports simple placeholders such as `{{input.idea}}`.
+
+Seeded reference workflows:
+
+- Product Idea Research
+- Repo Review
+- Landing Page Plan
+- Feature Implementation Plan
+- Launch Checklist
+
+## How plugins work
+
+Plugins are local manifests registered from code for the MVP. A plugin has:
+
+- `id`
+- `name`
+- `description`
+- `version`
+- `author`
+- provided `capabilities`
+- required `permissions`
+- `enabled`
+- raw manifest JSON
+
+Example manifest shape:
+
+```json
+{
+  "id": "builderos.files",
+  "name": "Files",
+  "version": "0.1.0",
+  "capabilities": ["file.read", "file.write", "file.list"],
+  "permissions": ["filesystem.read", "filesystem.write"]
+}
 ```
 
-### 3. Start gateway
+No marketplace, ZIP installer, remote code loading, or plugin upload flow is included yet.
 
-```bash
-pnpm --filter @builderos/gateway dev
-```
+## How capabilities work
 
-Gateway defaults to `http://localhost:8787`.
+Capabilities are actions workflows can call. Each capability defines:
 
-### 4. Run CLI against hosted gateway mode
+- `id`
+- `name`
+- `description`
+- provider plugin
+- input schema
+- output schema
+- required permissions
+- handler
 
-```bash
-export BUILDER_OS_GATEWAY_URL=http://localhost:8787
-export BUILDER_OS_API_KEY=bos_dev_example_key
-pnpm --filter @builderos/cli dev -- run echo '{"message":"hello from cli"}'
-```
+Initial capabilities:
 
-Profile-based setup (recommended):
+- `file.read`
+- `file.write`
+- `file.list`
+- `shell.command.mocked`
+- `git.inspect.mocked`
+- `research.note`
+- `artifact.create`
 
-```bash
-pnpm --filter @builderos/cli dev -- profile set local-hosted --base-url http://localhost:8787 --mode hosted --api-key-env BUILDER_OS_API_KEY
-pnpm --filter @builderos/cli dev -- profile use local-hosted
-pnpm --filter @builderos/cli dev -- run echo '{"message":"hello from profile"}'
-```
+Dangerous operations are intentionally conservative. Shell execution is mocked and never executes commands in this first version.
 
-### 5. Run local mode (auth bypass for local development)
+## Safety model
 
-```bash
-export BUILDER_OS_ALLOW_ANON_LOCAL=true
-pnpm --filter @builderos/gateway dev
-pnpm --filter @builderos/cli dev -- run echo '{"message":"local mode"}'
-```
+BuilderOS makes permissions visible and real without overbuilding policy infrastructure:
 
-### 6. Query usage summary
+- Workflows declare required permissions.
+- Capabilities declare required permissions.
+- The run button passes accepted workflow permissions.
+- The executor blocks a run if required workflow permissions are missing.
+- The executor blocks a step if capability permissions are missing.
+- Logs and run details show failures clearly.
 
-```bash
-pnpm --filter @builderos/cli dev -- usage summary --from 2026-01-20T00:00:00.000Z --to 2026-01-21T00:00:00.000Z
-pnpm --filter @builderos/cli dev -- usage by-route --from 2026-01-20T00:00:00.000Z --to 2026-01-21T00:00:00.000Z
-pnpm --filter @builderos/cli dev -- usage by-api-key --from 2026-01-20T00:00:00.000Z --to 2026-01-21T00:00:00.000Z
-```
+Example permissions:
 
-### 7. Workflow run history and replay
+- `filesystem.read`
+- `filesystem.write`
+- `shell.execute`
+- `git.read`
+- `network.request`
+- `secrets.read`
+- `artifacts.write`
 
-```bash
-pnpm --filter @builderos/cli dev -- runs list --limit 20
-pnpm --filter @builderos/cli dev -- runs list --status error --workflow echo --from 2026-01-20T00:00:00.000Z --to 2026-01-21T00:00:00.000Z
-pnpm --filter @builderos/cli dev -- runs list --limit 20 --cursor 2026-01-21T00:00:00.000Z
-pnpm --filter @builderos/cli dev -- runs replay <request-id>
-```
+## Secrets
 
-### 8. API key management
+The MVP includes a local secrets registry with masked display. Secret values are never shown after saving and should not be logged. The current storage is local SQLite. This is isolated and useful for local development, but it is **not a production-grade encrypted vault** yet.
 
-```bash
-pnpm --filter @builderos/cli dev -- keys list
-pnpm --filter @builderos/cli dev -- keys create --scopes workflows:run,usage:read
-pnpm --filter @builderos/cli dev -- keys revoke <api-key-id>
-```
+Suggested secret names:
 
-## Environment Variables
+- `OPENAI_API_KEY`
+- `GITHUB_TOKEN`
+- `VERCEL_TOKEN`
+- `NETLIFY_TOKEN`
 
-- `BUILDER_OS_GATEWAY_URL`: gateway base URL (default: `http://localhost:8787`)
-- `BUILDER_OS_API_KEY`: Builder OS hosted API key used by CLI/SDK
-- `BUILDER_OS_API_KEYS_JSON`: optional JSON array of allowed hosted API keys for gateway-side key resolution in development
-- `BUILDER_OS_DASHBOARD_API_KEY`: API key used by the web dashboard when calling usage APIs
-- `BUILDER_OS_ALLOW_ANON_LOCAL`: set `true` to bypass API key checks in local dev mode
-- `PORT`: gateway port (default: `8787`)
-- `DATABASE_URL`: Postgres connection string for gateway persistence
-- `PGPOOL_MAX`: optional Postgres connection pool size (default: `10`)
-- `BUILDER_OS_AUTO_MIGRATE`: set `true` to run migrations at gateway startup
-- `BUILDER_OS_SEED_API_KEY`: raw API key used by seed script (never stored directly)
-- `BUILDER_OS_SEED_OWNER_ID`: owner ID used by seed script
-- `BUILDER_OS_SEED_SCOPES`: comma-separated scopes for seed script (default: `workflows:run`)
+## MVP limitations
 
-Gateway auth now resolves a normalized auth context (`apiKeyId`, `keyPrefix`, `ownerId`, `scopes`, `mode`) and metering emits canonical usage events per workflow request lifecycle.
+- No plugin marketplace.
+- No plugin ZIP upload or remote plugin execution.
+- No multi-tenant SaaS model.
+- No billing.
+- No full autonomous AI agent loop.
+- No unrestricted shell execution.
+- No browser automation.
+- No large knowledge graph.
+- No production secrets vault.
+- No distributed worker system.
+- Workflow creation/editing is not fully built; reference workflows are seeded from code.
 
-## First Release Scope
+## Roadmap
 
-- Local config and hosted API key config
-- Simple workflow runner
-- One hosted API route (`POST /v1/workflows/run`)
-- Request auth middleware
-- Request metering middleware
-- One example workflow (`echo`)
-- One example CLI command calling hosted gateway
-
-## License
-
-MIT (to be added in follow-up if not already present).
+1. Add workflow creation/editing forms backed by the same schema.
+2. Add routine/scheduled runs on the local runtime.
+3. Add scoped file workspace permissions instead of conservative file stubs.
+4. Add encrypted secrets storage with key-management documentation.
+5. Add real repo inspection capability with safe allowlists.
+6. Add AI provider capabilities using explicitly configured secrets.
+7. Add Docker Compose and deployment docs for cloud-ready self-hosting.
+8. Add a builder UI for authoring workflows and plugins.
